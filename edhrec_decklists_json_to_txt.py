@@ -21,7 +21,7 @@ EDHREC_MIN_DELAY    = 0.40  # EDHREC safe throttle (0.4 seconds)
 ##########################
 
 def clean_output_directories(formatted_name):
-    output_dir = os.path.join("./output", formatted_name, "edhrec-decklists-compilation")
+    output_dir = os.path.join("./output", formatted_name, "edhrec-decklists")
     cache_dir = "./cache"
 
     # Recreate output/<commander>/
@@ -359,7 +359,7 @@ def main():
     all_decks = fetch_decks_parallel(deck_hashes)
 
     # 5. Save decklists
-    output_directory = os.path.join("./output", formatted_name, "edhrec-decklists-compilation")
+    output_directory = os.path.join("./output", formatted_name, "edhrec-decklists")
 
     os.makedirs(output_directory, exist_ok=True)
 
