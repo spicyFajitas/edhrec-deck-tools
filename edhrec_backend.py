@@ -1,6 +1,5 @@
 import json
 import os
-from tkinter import filedialog, Tk
 import requests
 import re
 import random
@@ -9,6 +8,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import argparse
+
+try:
+    from tkinter import filedialog, Tk
+    TK_AVAILABLE = True
+except Exception:
+    TK_AVAILABLE = False
 
 
 ########################
@@ -492,6 +497,9 @@ def save_cardtypes(type_groups, output_directory):
 ########
 
 def main():
+    if not TK_AVAILABLE:
+        raise RuntimeError("Tkinter is not available; this feature cannot run in Docker.")
+
     root = Tk()
     root.attributes("-topmost", True)
     root.iconify()
