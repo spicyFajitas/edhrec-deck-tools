@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Set lowercase owner
+        id: owner
+        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -41,6 +45,6 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/edhrec-deck-analyzer:latest
-            ghcr.io/${{ github.repository_owner }}/edhrec-deck-analyzer:${{ steps.vars.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/edhrec-deck-analyzer:${{ steps.vars.outputs.version_no_v }}
+            ghcr.io/${{ steps.owner.outputs.owner }}/edhrec-deck-analyzer:latest
+            ghcr.io/${{ steps.owner.outputs.owner }}/edhrec-deck-analyzer:${{ steps.vars.outputs.version }}
+            ghcr.io/${{ steps.owner.outputs.owner }}/edhrec-deck-analyzer:${{ steps.vars.outputs.version_no_v }}
