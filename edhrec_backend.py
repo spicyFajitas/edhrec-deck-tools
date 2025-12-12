@@ -2,7 +2,6 @@ import json
 import os
 import requests
 import re
-import random
 from datetime import datetime
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -10,7 +9,7 @@ from tqdm import tqdm
 import argparse
 
 try:
-    from tkinter import filedialog, Tk
+    from tkinter import Tk
     TK_AVAILABLE = True
 except Exception:
     TK_AVAILABLE = False
@@ -25,13 +24,13 @@ class EDHRecAnalyzer:
         # Rate limiting
         self.last_scryfall_request = 0
         self.last_edhrec_request = 0
-        self.SCRYFALL_MIN_DELAY = 0.12   # Scryfall: 50–100ms (safe: 120ms)
-        self.EDHREC_MIN_DELAY    = 0.40  # EDHREC: ~0.4s
+        self.SCRYFALL_MIN_DELAY = 0.12   # Scryfall: 50–100ms requested
+        self.EDHREC_MIN_DELAY = 0.80     # EDHREC safe delay
 
         # Build ID cache
         self.build_id = None
 
-        # Caching paths
+        # Cache paths
         self.cache_root = "./cache"
         self.deck_cache_dir = os.path.join(self.cache_root, "deck_cache")
         self.scryfall_cache_path = os.path.join(self.cache_root, "scryfall_cache.json")
@@ -47,15 +46,13 @@ class EDHRecAnalyzer:
     #################
 
     def rate_limit_scryfall(self):
-        now = time.time()
-        elapsed = now - self.last_scryfall_request
+        elapsed = time.time() - self.last_scryfall_request
         if elapsed < self.SCRYFALL_MIN_DELAY:
             time.sleep(self.SCRYFALL_MIN_DELAY - elapsed)
         self.last_scryfall_request = time.time()
 
     def rate_limit_edhrec(self):
-        now = time.time()
-        elapsed = now - self.last_edhrec_request
+        elapsed = time.time() - self.last_edhrec_request
         if elapsed < self.EDHREC_MIN_DELAY:
             time.sleep(self.EDHREC_MIN_DELAY - elapsed)
         self.last_edhrec_request = time.time()
@@ -70,6 +67,7 @@ class EDHRecAnalyzer:
         formatted_name = re.sub(non_alphas_regex, "", commander_name)
         formatted_name = formatted_name.lower()
         formatted_name = formatted_name.replace(" ", "-")
+        formatted_name = formatted_name.replace("'", "")
         return formatted_name
 
     ###########################
@@ -78,15 +76,13 @@ class EDHRecAnalyzer:
 
     def fetch_edhrec_build_id(self):
         """
-        Fetches the EDHREC build ID by parsing the _buildManifest.js script path.
-        Example script tag:
-            /_next/static/<BUILD_ID>/_buildManifest.js
+        Fetches the EDHREC build ID by parsing the homepage HTML and extracting:
+        /_next/static/<BUILD_ID>/_buildManifest.js
         """
         if self.build_id:
             return self.build_id
 
         self.rate_limit_edhrec()
-
         r = requests.get("https://edhrec.com")
         if r.status_code != 200:
             raise Exception("Failed to load EDHREC homepage to detect build ID")
@@ -123,7 +119,6 @@ class EDHRecAnalyzer:
     def clean_output_directories(self, formatted_name: str):
         output_dir = os.path.join("./output", formatted_name, "edhrec-decklists")
 
-        # Recreate output/<commander>/edhrec-decklists
         if os.path.exists(output_dir):
             for f in os.listdir(output_dir):
                 try:
@@ -141,9 +136,6 @@ class EDHRecAnalyzer:
     ##############################
 
     def fetch_deck_table(self, commander_formatted: str):
-        """
-        commander_formatted: already formatted string (mr-orfeo-the-boulder)
-        """
         url = f"https://json.edhrec.com/pages/decks/{commander_formatted}.json"
 
         self.rate_limit_edhrec()
@@ -153,24 +145,6 @@ class EDHRecAnalyzer:
             raise Exception(f"Failed to fetch deck table: HTTP {r.status_code}")
 
         return r.json()
-
-    #################
-    # deck metadata #
-    #################
-
-    @staticmethod
-    def save_run_metadata(output_directory, commander_name, recent, min_price, max_price, source_info):
-        metadata_path = os.path.join(output_directory, "commander.txt")
-        with open(metadata_path, "w") as f:
-            f.write("Commander Run Metadata\n")
-            f.write("======================\n\n")
-            f.write(f"Timestamp: {datetime.now()}\n")
-            f.write(f"Commander: {commander_name}\n")
-            f.write(f"Max Decks: {recent}\n")
-            f.write(f"Min Price: {min_price}\n")
-            f.write(f"Max Price: {max_price}\n")
-            f.write(f"Input Source: {source_info}\n")
-        print(f"Saved run metadata -> {metadata_path}")
 
     ###################################
     # Deck Filtering (price + recency)
@@ -217,17 +191,14 @@ class EDHRecAnalyzer:
     ###############################
 
     def fetch_deck_by_hash(self, deck_id: str):
-        # Check deck cache first
         cached = self.load_deck_from_cache(deck_id)
         if cached:
             return cached
 
-        # Load build ID (fetch once)
         if not self.build_id:
             self.fetch_edhrec_build_id()
 
         self.rate_limit_edhrec()
-
         url = f"https://edhrec.com/_next/data/{self.build_id}/deckpreview/{deck_id}.json?deckId={deck_id}"
         r = requests.get(url)
 
@@ -302,12 +273,10 @@ class EDHRecAnalyzer:
             self.save_scryfall_cache()
             return "Unknown"
 
-        data = r.json()
-        type_line = data.get("type_line", "Unknown")
+        type_line = r.json().get("type_line", "Unknown")
 
         self.scryfall_cache[card_name] = type_line
         self.save_scryfall_cache()
-
         return type_line
 
     ###################################
@@ -359,22 +328,46 @@ class EDHRecAnalyzer:
         return type_groups
 
     ###########################################
+    # Embedded metadata (header in every file)
+    ###########################################
+
+    @staticmethod
+    def build_metadata_header(commander_name, recent, min_price, max_price, source_info):
+        header = []
+        header.append("Commander Run Metadata")
+        header.append("======================")
+        header.append("")
+        header.append(f"Timestamp: {datetime.now()}")
+        header.append(f"Commander: {commander_name}")
+        header.append(f"Max Decks: {recent}")
+        header.append(f"Min Price: {min_price}")
+        header.append(f"Max Price: {max_price}")
+        header.append(f"Input Source: {source_info}")
+        header.append("")
+        header.append("Results")
+        header.append("======")
+        header.append("")
+        return "\n".join(header)
+
+    ###########################################
     # Saving Output (Master list + type lists)
     ###########################################
 
     @staticmethod
-    def save_master_cardcount(card_counts, output_directory):
+    def save_master_cardcount(card_counts, output_directory, metadata_header=""):
         sorted_cards = sorted(card_counts.items(), key=lambda x: x[1], reverse=True)
 
         with open(os.path.join(output_directory, "master_card_counts.txt"), "w") as f:
+            if metadata_header:
+                f.write(metadata_header + "\n")
             for card, count in sorted_cards:
                 f.write(f"{count}  {card}\n")
 
     @staticmethod
-    def save_cardtypes(type_groups, output_directory):
+    def save_cardtypes(type_groups, output_directory, metadata_header=""):
         for type_name, cards in type_groups.items():
             if not cards:
-                continue  # Only make file if populated
+                continue
 
             filename = f"cards_{type_name.lower()}.txt"
             path = os.path.join(output_directory, filename)
@@ -382,8 +375,21 @@ class EDHRecAnalyzer:
             sorted_cards = sorted(cards.items(), key=lambda x: x[1], reverse=True)
 
             with open(path, "w") as f:
+                if metadata_header:
+                    f.write(metadata_header + "\n")
                 for card, count in sorted_cards:
                     f.write(f"{count}  {card}\n")
+
+    @staticmethod
+    def save_decklists(all_decks, output_directory, formatted_name, metadata_header=""):
+        decklist_path = os.path.join(output_directory, formatted_name + "-decklists.txt")
+        with open(decklist_path, "w") as f:
+            if metadata_header:
+                f.write(metadata_header + "\n")
+            for d in all_decks:
+                f.write("\n".join(d))
+                f.write("\n\n")
+        return decklist_path
 
 
 ####################
@@ -403,18 +409,21 @@ def parse_inputs():
 
     args = parser.parse_args()
 
+    # print usage help if NO CLI args at all
     if not any(vars(args).values()):
         print("\n--- Command Line Usage (optional) ---")
-        print("python3 edhrec_decklists_json_to_txt.py --recent 20 --min-price 200 --max-price 450")
+        print("python3 edhrec_backend.py --recent 20 --min-price 200 --max-price 450")
         print("Commander name is always read from commander.txt unless overridden.\n")
         print("No CLI arguments detected — falling back to interactive prompts.\n")
 
+    # Commander defaults to file unless overridden
     if args.commander:
         commander_name = args.commander
     else:
         with open("commander.txt", "r") as f:
             commander_name = f.read().strip()
 
+    # If CLI supplied, use it; otherwise prompt
     if args.recent is not None:
         recent = args.recent
     else:
@@ -444,52 +453,40 @@ def parse_inputs():
 # Module-level convenience #
 ############################
 
-# Singleton analyzer instance for imports (web_app, etc.)
 _analyzer = EDHRecAnalyzer()
-
 
 def format_commander_name(commander_name: str):
     return _analyzer.format_commander_name(commander_name)
 
-
 def fetch_edhrec_build_id():
     return _analyzer.fetch_edhrec_build_id()
-
 
 def clean_output_directories(formatted_name: str):
     return _analyzer.clean_output_directories(formatted_name)
 
-
 def fetch_deck_table(commander_formatted: str):
     return _analyzer.fetch_deck_table(commander_formatted)
-
-
-def save_run_metadata(output_directory, commander_name, recent, min_price, max_price, source_info):
-    return _analyzer.save_run_metadata(output_directory, commander_name, recent, min_price, max_price, source_info)
-
 
 def filter_deck_hashes(deck_table: dict, recent: int, min_price: float, max_price: float):
     return _analyzer.filter_deck_hashes(deck_table, recent, min_price, max_price)
 
-
 def fetch_decks_parallel(deck_hashes):
     return _analyzer.fetch_decks_parallel(deck_hashes)
-
 
 def count_cards(all_decks):
     return _analyzer.count_cards(all_decks)
 
-
 def group_cards_by_type(card_counts):
     return _analyzer.group_cards_by_type(card_counts)
 
+def save_master_cardcount(card_counts, output_directory, metadata_header=""):
+    return _analyzer.save_master_cardcount(card_counts, output_directory, metadata_header)
 
-def save_master_cardcount(card_counts, output_directory):
-    return _analyzer.save_master_cardcount(card_counts, output_directory)
+def save_cardtypes(type_groups, output_directory, metadata_header=""):
+    return _analyzer.save_cardtypes(type_groups, output_directory, metadata_header)
 
-
-def save_cardtypes(type_groups, output_directory):
-    return _analyzer.save_cardtypes(type_groups, output_directory)
+def save_decklists(all_decks, output_directory, formatted_name, metadata_header=""):
+    return _analyzer.save_decklists(all_decks, output_directory, formatted_name, metadata_header)
 
 
 ########
@@ -497,62 +494,46 @@ def save_cardtypes(type_groups, output_directory):
 ########
 
 def main():
-    if not TK_AVAILABLE:
-        raise RuntimeError("Tkinter is not available; this feature cannot run in Docker.")
-
-    root = Tk()
-    root.attributes("-topmost", True)
-    root.iconify()
+    # CLI can run without Tk; only use Tk if you still want it for Linux desktop UX.
+    if TK_AVAILABLE:
+        root = Tk()
+        root.attributes("-topmost", True)
+        root.iconify()
+    else:
+        root = None
 
     commander_name, recent, min_price, max_price, source_info = parse_inputs()
 
     formatted_name = _analyzer.format_commander_name(commander_name)
 
-    # 0. Clean output directories for currently scripted commander
     output_directory = _analyzer.clean_output_directories(formatted_name)
 
-    print("Commander is: ", commander_name)
+    _analyzer.fetch_edhrec_build_id()
 
-    # 1. Get deck table
     deck_table = _analyzer.fetch_deck_table(formatted_name)
 
-    # 2. Get filtered deck hashes
     deck_hashes = _analyzer.filter_deck_hashes(deck_table, recent, min_price, max_price)
-    print(f"Using {len(deck_hashes)} deck hashes: {deck_hashes}")
+    print(f"Using {len(deck_hashes)} deck hashes")
 
-    # 3. Fetch decklists (parallel)
     all_decks = _analyzer.fetch_decks_parallel(deck_hashes)
 
-    # 4. Save metadata describing this run
-    _analyzer.save_run_metadata(
-        output_directory,
-        commander_name,
-        recent,
-        min_price,
-        max_price,
-        source_info
+    metadata_header = _analyzer.build_metadata_header(
+        commander_name, recent, min_price, max_price, source_info
     )
 
-    # 5. Save decklists
-    decklist_file = os.path.join(output_directory, formatted_name + "-decklists.txt")
-    with open(decklist_file, "w") as f:
-        for d in all_decks:
-            f.write("\n".join(d))
-            f.write("\n\n")
-
+    decklist_file = _analyzer.save_decklists(all_decks, output_directory, formatted_name, metadata_header)
     print("Decklists saved to", decklist_file)
 
-    # 6. Count cards
     card_counts = _analyzer.count_cards(all_decks)
-    _analyzer.save_master_cardcount(card_counts, output_directory)
+    _analyzer.save_master_cardcount(card_counts, output_directory, metadata_header)
 
-    # 7. Group by card type
     type_groups = _analyzer.group_cards_by_type(card_counts)
-    _analyzer.save_cardtypes(type_groups, output_directory)
+    _analyzer.save_cardtypes(type_groups, output_directory, metadata_header)
 
-    print("Master card count and type lists saved in ./output/")
+    print("Saved outputs in:", output_directory)
 
-    root.destroy()
+    if root:
+        root.destroy()
 
 
 if __name__ == "__main__":
