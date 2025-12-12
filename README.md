@@ -5,8 +5,10 @@
   - [Setup and Example](#setup-and-example)
   - [Usage - EDHRec Recommendations](#usage---edhrec-recommendations)
   - [Usage - EDHRec Decklist Statistics](#usage---edhrec-decklist-statistics)
-    - [Entering Arguments During Script Run](#entering-arguments-during-script-run)
-    - [Entering Command Line Arguments](#entering-command-line-arguments)
+    - [Docker Container](#docker-container)
+    - [Command Line](#command-line)
+      - [Entering Arguments During Script Run](#entering-arguments-during-script-run)
+      - [Entering Command Line Arguments](#entering-command-line-arguments)
     - [Example Using Mixed Arguments](#example-using-mixed-arguments)
   - [Outputs](#outputs)
     - [EDHRec Suggestions](#edhrec-suggestions)
@@ -20,6 +22,8 @@
 ## Intro
 
 These Python programs are aimed at helping deckbuilders follow trends for building their EDH/Commander decks. The scripts get cardlists for a given commander from EDHRec and save them as text files that can be uploaded to sites like Moxfield, Archidekt, MPC Autofill, etc.
+
+This README is not fully up to date with development. Since the last overhaul, a web frontend has been introduced and this program can be ran on a server in a docker container.
 
 ## Setup and Example
 
@@ -66,7 +70,16 @@ Example: `Mr. Orfeo, the Boulder`
 
 You can either enter the arguments for the script while the script is running, or you can define command line arguments before runnnig the script and the script will automatically use those arguments. You can use any combination of arguments supplied before script runtime and/or arguments supplied from the script prompting.
 
-### Entering Arguments During Script Run
+### Docker Container
+
+```shell
+docker pull ghcr.io/spicyfajitas/edhrec-deck-analyzer:latest
+docker run -d --name edhrec-analyzer -p 8501:8501 ghcr.io/spicyfajitas/edhrec-deck-analyzer:latest
+```
+
+### Command Line
+
+#### Entering Arguments During Script Run
 
 ```shell
 (venv-magic-scripts) user@pc:~$ python3 edhrec_decklists_json_to_txt.py 
@@ -91,7 +104,7 @@ Master card count and type lists saved in ./output/
 (venv-magic-scripts) user@pc:~$ 
 ```
 
-### Entering Command Line Arguments
+#### Entering Command Line Arguments
 
 ```shell
 (venv-magic-scripts) user@pc:~$  python3 edhrec_decklists_json_to_txt.py --commander "Mr. Orfeo, the Boulder" --recent 5 --min-price 1 --max-price 100
