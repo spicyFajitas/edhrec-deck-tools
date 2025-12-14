@@ -198,7 +198,7 @@ if run_button:
                 type_groups["Unknown"][card] = count
 
             type_progress.progress(idx / total_cards)
-            type_status.info(f"Downloaded {idx}/{total_cards} decks")
+            type_status.info(f"Classified {idx}/{total_cards} cards")
         
         type_progress.empty()
         type_status.empty()
