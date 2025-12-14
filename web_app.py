@@ -17,9 +17,12 @@ analyzer = EDHRecAnalyzer()
 # Streamlit UI Setup
 ###################################
 
-st.set_page_config(page_title="EDHREC Deck Analyzer", layout="centered")
-st.title("🧙‍♂️ EDHREC Deck Analyzer")
+st.set_page_config(page_title="EDHRec Deck Builder Tool", layout="centered")
+st.title("🧙‍♂️ EDHRec Deck Builder Tool")
 st.write("Fetch, analyze, and categorize EDHREC decklists automatically.")
+
+
+st.write("This tool aggregates data from EDHRec for a given commander and shows the commonly used cards in a deck by count of how many decks the card is in.")
 
 
 ###################################
@@ -79,6 +82,8 @@ min_price = st.number_input("Minimum deck price", min_value=1.0, max_value=10000
 max_price = st.number_input("Maximum deck price", min_value=1.0, max_value=10000.0, value=100.0)
 
 run_button = st.button("Fetch & Analyze Decklists")
+
+st.info("Ready when you are — enter your commander and press the button!")
 
 
 ###################################
@@ -312,5 +317,3 @@ if st.session_state.results_ready:
     st.altair_chart(chart, use_container_width=True)
 
     st.success("Dashboard and download tools ready!")
-
-st.info("Ready when you are — enter your commander and press the button!")
