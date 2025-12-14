@@ -14,7 +14,19 @@ analyzer = EDHRecAnalyzer()
 # Streamlit UI Setup
 ###################################
 
-st.set_page_config(page_title="EDHRec Deck Builder Tool", layout="centered")
+st.set_page_config(
+    page_title="EDHRec Deck Builder Tool",
+    layout="centered",
+    menu_items={
+        "Get help": "Contact me on Discord - @spicyfajitas",
+        "Report a bug": "https://github.com/spicyFajitas/edhrec-deck-building-scripts/issues",
+        "About": (
+            "🧙‍♂️ EDHRec Deck Builder Tool\n\n"
+            "Build Commander decks using EDHREC data.\n\n"
+            "GitHub: https://github.com/spicyFajitas/edhrec-deck-building-scripts"
+        ),
+    },
+)
 st.title("🧙‍♂️ EDHRec Deck Builder Tool")
 st.write("Fetch, analyze, and categorize EDHREC decklists automatically.")
 st.write(
