@@ -282,9 +282,21 @@ if st.session_state.results_ready:
     # Dashboard Visualization
     st.subheader("Card Analysis Dashboard")
 
+    BASIC_LANDS = {
+        "Plains",
+        "Island",
+        "Swamp",
+        "Mountain",
+        "Forest"
+    }
+
     card_df = pd.DataFrame(
-        [(card, count) for card, count in card_counts.items()],
-        columns=["Card", "Count"]
+    [
+        (card, count)
+        for card, count in card_counts.items()
+        if card not in BASIC_LANDS
+    ],
+    columns=["Card", "Count"]
     ).sort_values("Count", ascending=False)
 
     top_n = st.slider("Show top N cards", min_value=5, max_value=100, value=20)
