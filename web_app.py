@@ -365,7 +365,16 @@ if st.session_state.results_ready:
             .mark_bar()
             .encode(
                 x=alt.X("Count:Q", title="Frequency Across Decks"),
-                y=alt.Y("Card:N", sort="-x", title="Card Name"),
+                #y=alt.Y("Card:N", sort="-x", title="Card Name"), # Vega-Lite has an automatic label de-overlap algorithm on categorical axes
+                y=alt.Y(
+                    "Card:N",
+                    sort="-x",
+                    title="Card Name",
+                    axis=alt.Axis(
+                        labelOverlap=False,   # 🔥 CRITICAL: stop Vega from skipping labels
+                        labelFontSize=11,
+                    ),
+                ),
                 tooltip=["Card", "Count"]
             )
             .properties(height=dynamic_height)
