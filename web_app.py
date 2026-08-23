@@ -181,8 +181,8 @@ commander_name = st.text_input(
 
 st.header("Deck Query Filters")
 recent = st.number_input("How many recent decks to fetch?", 5, 200, 20, 5, key=field_key("recent"))
-min_price = st.number_input("Minimum deck price", 5, 10000, 5, 5, key=field_key("min_price"))
-max_price = st.number_input("Maximum deck price", 5, 10000, 100, 5, key=field_key("max_price"))
+min_price = st.number_input("Minimum deck price", 5, 10000, 50, 5, key=field_key("min_price"))
+max_price = st.number_input("Maximum deck price", 5, 10000, 150, 5, key=field_key("max_price"))
 
 run_button = st.button("Fetch & Analyze Decklists")
 
