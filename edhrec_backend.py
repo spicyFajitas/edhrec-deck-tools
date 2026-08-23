@@ -184,12 +184,36 @@ class EDHRecAnalyzer:
     # Persistent Deck Cache Functions
     ##################################
 
+    @staticmethod
+    def _normalize_deck(raw):
+        """Convert either API deck format to a flat ["qty CardName", ...] list.
+
+        Old format (pre-2026-08): list of strings like "1 Sol Ring"
+        New format (2026-08+):    dict with 'commander_v2' and 'cards' keys
+        """
+        if isinstance(raw, list):
+            return raw
+        if not isinstance(raw, dict):
+            return None
+        lines = []
+        for entry in raw.get("commander_v2", []):
+            name, qty = (entry[0], entry[1]) if len(entry) == 2 else (entry[0], 1)
+            lines.append(f"{qty} {name}")
+        for type_list in raw.get("cards", {}).values():
+            for entry in type_list:
+                name, qty = (entry[0], entry[1]) if len(entry) == 2 else (entry[0], 1)
+                lines.append(f"{qty} {name}")
+        return lines
+
     def load_deck_from_cache(self, deck_id):
         path = os.path.join(self.deck_cache_dir, deck_id + ".json")
         if os.path.exists(path):
             try:
                 with open(path, "r") as f:
-                    return json.load(f)
+                    raw = json.load(f)
+                # Cache may contain old dict format from before the API change;
+                # normalize so callers always get a flat list.
+                return self._normalize_deck(raw)
             except Exception:
                 return None
         return None
@@ -220,8 +244,13 @@ class EDHRecAnalyzer:
             return None
 
         try:
-            deck = r.json()["pageProps"]["data"]["deck"]
+            raw = r.json()["pageProps"]["data"]["deck"]
         except KeyError:
+            print(f"Deck JSON format unexpected for {deck_id}")
+            return None
+
+        deck = self._normalize_deck(raw)
+        if deck is None:
             print(f"Deck JSON format unexpected for {deck_id}")
             return None
 
